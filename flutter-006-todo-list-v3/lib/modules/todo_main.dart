@@ -1,21 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:todolist/models/todo.dart';
-
-void main() {
-  runApp(const App());
-}
-
-class App extends StatelessWidget {
-  const App({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return const MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: StartPage(),
-    );
-  }
-}
+import 'package:todolist/service/todo_service.dart';
 
 class StartPage extends StatefulWidget {
   const StartPage({super.key});
@@ -34,7 +20,7 @@ class _StartPage extends State<StartPage> {
   Todo getTodo(String content) {
     return Todo(
       sdate: DateFormat("yyyy-MM-dd").format(DateTime.now()),
-      stime: DateFormat("HH:ss:mm").format(DateTime.now()),
+      stime: DateFormat("HH:mm:ss").format(DateTime.now()),
       content: content,
       complete: false,
     );
@@ -101,13 +87,19 @@ class _StartPage extends State<StartPage> {
                 ),
               ),
               IconButton(
-                onPressed: () {
+                onPressed: () async {
                   var todo = getTodo(todoContent);
+                  // ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                  //   content: Text("데이터 추가 하였습니다"),
+                  // ));
+
+                  await TodoService().insert(todo);
                   setState(() {
-                    todoList.add(todo);
+                    // 입력이 완료된 후 키보드 자동으로 감추기
+                    FocusScope.of(context).unfocus();
                     todoContent = "";
-                    inputController.clear();
                   });
+                  inputController.clear();
                 },
                 icon: const Icon(Icons.send_outlined),
               )
@@ -116,16 +108,35 @@ class _StartPage extends State<StartPage> {
         ),
       ),
       body: GestureDetector(
-        onTap: () => FocusScope.of(context).unfocus(),
-        child: todoListView(),
-      ),
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: FutureBuilder(
+            // future 는 실제 데이터를 가져오는 속성
+            // 여기에서 가져온 데이터는 builder에게 snapshot 에 담아서 전달
+            future: TodoService().selectAll(),
+            builder: (context, snapshot) {
+              if (snapshot.hasData) {
+                return todoListView(
+                  snapshot: snapshot,
+                );
+              } else {
+                return const Center(
+                  child: CircularProgressIndicator(
+                    semanticsLabel: "데이터가 없습니다",
+                  ),
+                );
+              }
+            },
+          )),
     );
   }
 
   /// ListView return type 을 Widget으로 변경하기
   /// 모든 Widget 은 가장 상위 클래스인 Widget 을 상속받고 있기 때문에
   /// 모든 Widget 의 return type 은 Widget 으로 설정하여도 된다
-  Widget todoListView() {
+  Widget todoListView({required AsyncSnapshot<List<Todo>> snapshot}) {
+    // snapshot 으로 부터 실제 todoList 를 뽑아서 todoList 에 담기
+    var todoList = snapshot.data!;
+
     return ListView.builder(
       itemCount: todoList.length,
       itemBuilder: (context, index) {
@@ -166,21 +177,28 @@ class _StartPage extends State<StartPage> {
             /// 사라지기 전의 event
             /// event 핸들러에서 Future.value(true) 를 return 하면
             /// swipe 행위가 진행되고, false 를 return 하면 진행을 멈춘다
-            confirmDismiss: (direction) => onConfirmHandler(direction, index),
+            confirmDismiss: (direction) =>
+                onConfirmHandler(direction, todoList[index]),
 
             /// confirmDismiss 에서 true 가 return 되었을때 할일
-            onDismissed: (direction) {
+            onDismissed: (direction) async {
+              // 완료 설정
               if (direction == DismissDirection.startToEnd) {
-                setState(() {
-                  todoList[index].complete = !todoList[index].complete;
-                });
+                var todo = todoList[index];
+                todo.complete = !todo.complete;
+                await TodoService().update(todo);
+                setState(() {});
+                // 삭제하기
               } else if (direction == DismissDirection.endToStart) {
-                setState(() {
-                  todoList.removeAt(index);
-                });
+                var content = todoList[index].content;
+
                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                  content: Text("${todoList[index].content} 를 삭제하였습니다"),
+                  content: Text("$content를 삭제하였습니다"),
                 ));
+
+                // DB PK  값을 delete 에게 직접 전달하기
+                await TodoService().delete(todoList[index].id ?? 0);
+                setState(() {});
               }
             },
 
@@ -225,9 +243,9 @@ class _StartPage extends State<StartPage> {
     );
   }
 
-  Future<bool?> onConfirmHandler(direction, index) {
+  Future<bool?> onConfirmHandler(direction, Object todo) {
     if (direction == DismissDirection.startToEnd) {
-      return completeConfirm(index);
+      return completeConfirm(todo);
     } else if (direction == DismissDirection.endToStart) {
       return deleteConfirm();
     }
@@ -258,8 +276,8 @@ class _StartPage extends State<StartPage> {
     );
   }
 
-  Future<bool?> completeConfirm(index) {
-    var yesNo = todoList[index].complete ? "완료처리를 취소할까요??" : "완료처리를 할까요?";
+  Future<bool?> completeConfirm(todo) {
+    var yesNo = todo.complete ? "완료처리를 취소할까요??" : "완료처리를 할까요?";
     return showDialog(
       context: context,
       builder: (context) => AlertDialog(
