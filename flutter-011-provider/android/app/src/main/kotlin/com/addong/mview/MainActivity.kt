@@ -1,0 +1,6 @@
+package com.addong.mview
+
+import io.flutter.embedding.android.FlutterActivity
+
+class MainActivity: FlutterActivity() {
+}
