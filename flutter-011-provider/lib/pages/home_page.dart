@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:mview/ui_models/time_view_model.dart';
+import 'package:mview/ui_models/timer_view_model.dart';
 import 'package:provider/provider.dart';
 
 class HomePage extends StatelessWidget {
@@ -13,6 +13,7 @@ class HomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    context.select((value) => null);
     var strTimer = context.select<TimerViewModel, String>(
         (value) => _formatTime(value.timerDto.timer));
     var timerRun = context
@@ -24,35 +25,13 @@ class HomePage extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: Center(
-        child: Stack(
-          children: [
-            Text(
-              strTimer,
-              style: TextStyle(
-                  fontSize: 80,
-                  fontWeight: FontWeight.w900,
-                  foreground: Paint()
-                    ..style = PaintingStyle.stroke
-                    ..strokeWidth = 5
-                    ..color = Colors.white),
-            ),
-            Text(
-              strTimer,
-              style: const TextStyle(
-                  fontSize: 80,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.indigo),
-            ),
-          ],
-        ),
-      ),
-      floatingActionButtonLocation:
-          FloatingActionButtonLocation.miniCenterFloat,
+      body: TimerText(strTimer: strTimer),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: SizedBox(
         width: 100,
         height: 100,
         child: FloatingActionButton(
+          shape: const CircleBorder(),
           onPressed: onPressed,
           backgroundColor: Colors.white38,
           isExtended: true,
@@ -62,6 +41,45 @@ class HomePage extends StatelessWidget {
             color: Colors.black,
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// 기존의 코드에서 Widget 을 분리하는 방법 3가지가 있다
+/// 1. 변수 type 으로 변환하기 2. 함수 type 으로 변환하기 3. 클래스 type 으로 변환하기
+///
+class TimerText extends StatelessWidget {
+  const TimerText({
+    super.key,
+    required this.strTimer,
+  });
+
+  final String strTimer;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Stack(
+        children: [
+          Text(
+            strTimer,
+            style: TextStyle(
+                fontSize: 80,
+                fontWeight: FontWeight.w900,
+                foreground: Paint()
+                  ..style = PaintingStyle.stroke
+                  ..strokeWidth = 5
+                  ..color = Colors.white),
+          ),
+          Text(
+            strTimer,
+            style: const TextStyle(
+                fontSize: 80,
+                fontWeight: FontWeight.w900,
+                color: Colors.indigo),
+          ),
+        ],
       ),
     );
   }
