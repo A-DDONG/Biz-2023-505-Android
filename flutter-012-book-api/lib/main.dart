@@ -1,6 +1,10 @@
+import 'package:book/api/naver_open_api.dart';
+import 'package:book/models/naver_book_dto.dart';
 import 'package:flutter/material.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  // NaverOpenAPI().loadBooks;
   runApp(const MainApp());
 }
 
@@ -10,10 +14,101 @@ class MainApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const MaterialApp(
-      home: Scaffold(
-        body: Center(
-          child: Text('Hello World!'),
+      debugShowCheckedModeBanner: false,
+      home: ViewBooksPage(),
+    );
+  }
+}
+
+class ViewBooksPage extends StatefulWidget {
+  const ViewBooksPage({super.key});
+
+  @override
+  State<ViewBooksPage> createState() => _ViewBooksPageState();
+}
+
+class _ViewBooksPageState extends State<ViewBooksPage> {
+  Future<List<NaverBookDTO>>? resultBooks = NaverOpenAPI().loadBooks();
+
+  void searchBooks(search) {
+    Future<List<NaverBookDTO>>? searchResultBooks =
+        NaverOpenAPI().loadBooks(search);
+    setState(() {
+      resultBooks = searchResultBooks;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        title: SearchBox(searchBooks: searchBooks),
+      ),
+      body: ViewListPage(resultBooks: resultBooks),
+    );
+  }
+}
+
+class SearchBox extends StatelessWidget {
+  SearchBox({
+    super.key,
+    required this.searchBooks,
+  });
+
+  final Function(String search) searchBooks;
+  final searchInputController = TextEditingController();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(mainAxisSize: MainAxisSize.max, children: [
+      Flexible(
+        child: TextField(
+          controller: searchInputController,
+          keyboardType: TextInputType.text,
+          textInputAction: TextInputAction.search,
+          onSubmitted: (value) => {searchBooks(value)},
+          decoration: const InputDecoration(
+              border: OutlineInputBorder(),
+              labelText: "검색어",
+              hintText: "도서 검색어를 입력하세요"),
         ),
+      ),
+    ]);
+  }
+}
+
+class ViewListPage extends StatelessWidget {
+  const ViewListPage({
+    super.key,
+    required this.resultBooks,
+  });
+
+  final Future<List<NaverBookDTO>>? resultBooks;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: FutureBuilder(
+        future: resultBooks,
+        builder: (context, snapshot) {
+          return ListView.builder(
+            itemCount: snapshot.data!.length,
+            itemBuilder: (context, index) => ListTile(
+              leading: ClipRRect(
+                // borderRadius: BorderRadius.circular(8.0), // 원하는 모서리 반경 설정
+                child: Image.network(
+                  snapshot.data![index].image!,
+                  width: 48, // 이미지의 너비 설정
+                  height: 48, // 이미지의 높이 설정
+                  fit: BoxFit.cover, // 이미지가 위젯에 맞게 잘리도록 설정
+                ),
+              ),
+              title: Text(snapshot.data![index].title!),
+              subtitle: Text(snapshot.data![index].author!),
+            ),
+          );
+        },
       ),
     );
   }
